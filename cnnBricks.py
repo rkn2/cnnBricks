@@ -67,44 +67,47 @@ train_x = train_x.reshape(train_x.shape[0], 1, train_x.shape[1], train_x.shape[2
 train_x = torch.from_numpy(train_x)
 
 # converting the target into torch format
-train_y = train_y.astype(int);
-train_y = torch.from_numpy(train_y)
+train_y = torch.LongTensor(train_y.astype(int))
 
 # shape of training data
-train_x.shape, train_y.shape
+print(train_x.shape, train_y.shape)
 
 # converting validation images into torch format
 val_x = val_x.reshape(val_x.shape[0], 1, val_x.shape[1], val_x.shape[2])
 val_x = torch.from_numpy(val_x)
 
 # converting the target into torch format
-val_y = val_y.astype(int);
-val_y = torch.from_numpy(val_y)
+val_y = torch.LongTensor(val_y.astype(int))
 
 # shape of validation data
-val_x.shape, val_y.shape
+print(val_x.shape, val_y.shape)
+
+# downsample the dataset
+train_x = train_x[:20]
+train_y = train_y[:20]
 
 
 # Let’s define the architecture:
 class Net(Module):
-    def __init__(self):
+    def __init__(self, num_features=4):
         super(Net, self).__init__()
 
         self.cnn_layers = Sequential(
             # Defining a 2D convolution layer
-            Conv2d(1, 60, kernel_size=3, stride=1, padding=1),
-            BatchNorm2d(60),
+            Conv2d(1, num_features, kernel_size=3, stride=1, padding=1),
+            BatchNorm2d(num_features),
             ReLU(inplace=True),
             MaxPool2d(kernel_size=2, stride=2),
             # Defining another 2D convolution layer
-            Conv2d(60, 60, kernel_size=3, stride=1, padding=1),
-            BatchNorm2d(60),
+            Conv2d(num_features, num_features, kernel_size=3, stride=1, padding=1),
+            BatchNorm2d(num_features),
             ReLU(inplace=True),
             MaxPool2d(kernel_size=2, stride=2),
         )
 
         self.linear_layers = Sequential(
-            Linear(4 * 7 * 7, 10) # input_num_units, hidden_num_units
+            # Linear(4 * 7 * 7, 10) # input_num_units, hidden_num_units
+            Linear(num_features * 128 * 128, num_features)  # 128 is H_out from MaxPool2d twice
         )
 
     # Defining the forward pass
@@ -126,13 +129,23 @@ if torch.cuda.is_available():
     model = model.cuda()
     criterion = criterion.cuda()
 
-print(model)
+print('model stored on %s' % str(next(model.parameters()).device))
 
 
 # This is the architecture of the model. We have two Conv2d layers and a Linear layer.
 
+def mem():
+    import os
+    import psutil
+    pid = os.getpid()
+    py = psutil.Process(pid)
+    memoryUse = py.memory_info()[0] / 2. ** 20
+    return str(memoryUse)
+
+
 # Next, we will define a function to train the model:
 def train(epoch):
+    print(mem())
     model.train()
     tr_loss = 0
     # getting the training set
@@ -156,8 +169,9 @@ def train(epoch):
     # computing the training and validation loss
     loss_train = criterion(output_train, y_train)
     loss_val = criterion(output_val, y_val)
-    train_losses.append(loss_train)
-    val_losses.append(loss_val)
+    # train_losses.append(loss_train) # memory issues
+    train_losses.append(loss_train.item())
+    val_losses.append(loss_val.item())
 
     # computing the updated weights of all the model parameters
     loss_train.backward()
@@ -177,3 +191,65 @@ val_losses = []
 # training the model
 for epoch in range(n_epochs):
     train(epoch)
+
+# plotting the training and validation loss
+plt.figure()
+plt.plot(train_losses, label='Training loss')
+plt.plot(val_losses, label='Validation loss')
+plt.legend()
+plt.show()
+
+
+def make_prediction(input_for_pred):
+    with torch.no_grad():
+        output = model(input_for_pred)
+    softmax = torch.exp(output).cpu()
+    prob = list(softmax.numpy())
+    predictions = np.argmax(prob, axis=1)
+
+    return predictions
+
+
+# prediction for training set
+predictions = make_prediction(train_x.cuda())
+# accuracy on training set
+accuracy_score(train_y, predictions)
+
+# prediction for validation set
+predictions = make_prediction(val_x.cuda())
+# accuracy on validation set
+accuracy_score(val_y, predictions)
+
+# loading test images
+test_img = []
+for img_name in tqdm(test['File']):
+    # defining the image path
+    image_path = 'Images/' + str(img_name)
+    # reading the images
+    img = imread(image_path, as_gray=True)
+    # normalizing the pixel values
+    img /= 255.0
+    # converting the type of pixel to float 32
+    img = img.astype('float32')
+    # appending the image into the list
+    test_img.append(img)
+
+# converting the list to numpy array
+test_x = np.array(test_img)
+test_x.shape
+
+# converting training images into torch format
+test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1], test_x.shape[2])
+test_x  = torch.from_numpy(test_x)
+test_x.shape
+
+# generating predictions for test set
+predictions = make_prediction(test_x.cuda())
+
+# TODO : There is something wrong with development.csv (too long for pred)
+# # replacing the label with prediction
+# sample_submission['Label'] = predictions
+# sample_submission.head()
+#
+# # saving the file
+# sample_submission.to_csv('development.csv', index=False)
