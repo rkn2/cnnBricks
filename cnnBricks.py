@@ -3,6 +3,7 @@
 # importing the libraries
 import pandas as pd
 import numpy as np
+import math
 
 # for reading and displaying images
 from skimage.io import imread
@@ -18,8 +19,7 @@ from tqdm import tqdm
 # PyTorch libraries and modules
 import torch
 from torch.autograd import Variable
-from torch.nn import Linear, ReLU, CrossEntropyLoss, Sequential, Conv2d, MaxPool2d, Module, Softmax, BatchNorm2d, \
-    Dropout
+from torch.nn import Linear, ReLU, CrossEntropyLoss, Sequential, Conv2d, MaxPool2d, Module, Softmax, BatchNorm2d, Dropout
 from torch.optim import Adam, SGD
 
 # loading dataset
@@ -50,13 +50,13 @@ train_x = np.array(train_img)
 train_y = train['Labels'].values
 train_x.shape
 
-# visualizing images
-i = 0
-plt.figure(figsize=(10, 10))
-plt.subplot(221), plt.imshow(train_x[i], cmap='gray')
-plt.subplot(222), plt.imshow(train_x[i + 25], cmap='gray')
-plt.subplot(223), plt.imshow(train_x[i + 50], cmap='gray')
-plt.subplot(224), plt.imshow(train_x[i + 75], cmap='gray')
+# # visualizing images
+# i = 0
+# plt.figure(figsize=(10, 10))
+# plt.subplot(221), plt.imshow(train_x[i], cmap='gray')
+# plt.subplot(222), plt.imshow(train_x[i + 25], cmap='gray')
+# plt.subplot(223), plt.imshow(train_x[i + 50], cmap='gray')
+# plt.subplot(224), plt.imshow(train_x[i + 75], cmap='gray')
 
 # create validation set
 train_x, val_x, train_y, val_y = train_test_split(train_x, train_y, test_size=0.1)
@@ -70,7 +70,7 @@ train_x = torch.from_numpy(train_x)
 train_y = torch.LongTensor(train_y.astype(int))
 
 # shape of training data
-print(train_x.shape, train_y.shape)
+# print(train_x.shape, train_y.shape)
 
 # converting validation images into torch format
 val_x = val_x.reshape(val_x.shape[0], 1, val_x.shape[1], val_x.shape[2])
@@ -80,7 +80,7 @@ val_x = torch.from_numpy(val_x)
 val_y = torch.LongTensor(val_y.astype(int))
 
 # shape of validation data
-print(val_x.shape, val_y.shape)
+# print(val_x.shape, val_y.shape)
 
 # downsample the dataset
 train_x = train_x[:20]
@@ -182,6 +182,28 @@ def train(epoch):
         print('Epoch : ', epoch + 1, '\t', 'loss :', loss_val)
 
 
+# split workload across all workers
+class MyIterableDataSet(torch.utils.data.IterableDataset):
+    def __init__(self, start, end):
+        super(MyIterableDataSet).__init__()
+        assert end > start, "works only with end>=start"
+        self.start = start
+        self.end = end
+
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            iter_start = self.start
+            iter_end = self.end
+        else:
+            per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))
+            worker_id = worker_info
+            iter_start = self.start + worker_id * per_worker
+            iter_end = min(iter_start + per_worker, self.end)
+        return iter(range(iter_start, iter_end))
+
+ds = MyIterableDataSet(start=3, end=7)
+
 # defining the number of epochs
 n_epochs = 25
 # empty list to store training losses
@@ -190,6 +212,7 @@ train_losses = []
 val_losses = []
 # training the model
 for epoch in range(n_epochs):
+    # for img
     train(epoch)
 
 # plotting the training and validation loss
@@ -240,7 +263,7 @@ test_x.shape
 
 # converting training images into torch format
 test_x = test_x.reshape(test_x.shape[0], 1, test_x.shape[1], test_x.shape[2])
-test_x  = torch.from_numpy(test_x)
+test_x = torch.from_numpy(test_x)
 test_x.shape
 
 # generating predictions for test set
