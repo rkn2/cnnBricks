@@ -251,9 +251,9 @@ plt.show()
 # model.save(ArchB_model.h5)
 model.summary()
 
-model.save_weights(folder + "ArchB_model.h5")
+model.save_weights("ArchB_model.h5")
 
-model.save(folder + "archi_B", include_optimizer=True)
+model.save("archi_B", include_optimizer=True)
 
 score = model.evaluate(test_generator)
 print(score[0], 'Test loss')
