@@ -50,14 +50,14 @@ batch_size = 20
 # Read the train test folders
 # Labels train and test
 # Locate the csv files of train and test
-train_csv = pd.read_csv("./training.csv")
-test_csv = pd.read_csv("./testing.csv")
+train_csv = pd.read_csv("training.csv")
+test_csv = pd.read_csv("testing.csv")
 
 # As the data generator takes the categorical texts,changed earlier 0 and 1 to cracked and uncracked
 train_csv['label'] = ["cracked" if x == 1 else "uncracked" for x in train_csv.Labels]
 test_csv['label'] = ["cracked" if x == 1 else "uncracked" for x in test_csv.Labels]
 
-data_path = "./Images"
+data_path = "Images"
 # train_path= "./Data/training"
 # test_path = "./Data/test"
 print(train_csv)
@@ -120,7 +120,7 @@ else:
 
 print(train_generator.n)
 
-from IPython.display import clear_output
+# from IPython.display import clear_output
 
 
 class PlotLearning(keras.callbacks.Callback):
@@ -144,7 +144,7 @@ class PlotLearning(keras.callbacks.Callback):
         self.i += 1
         f, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
 
-        clear_output(wait=True)
+        # clear_output(wait=True)
 
         # ax1.set_yscale('log')
         ax1.plot(self.x, self.accuracy, label="acc")
@@ -192,7 +192,7 @@ model.add(Convolution2D(32, 9, strides=(1, 1),
 model.add(Convolution2D(32, 9, strides=(1, 1),
                         padding='valid',
                         activation='relu'))
-model.add(MaxPooling2D(pool_size=(6, 6), strides=strides1)
+model.add(MaxPooling2D(pool_size=(6, 6), strides=strides1))
 model.add(Dropout(0.25))
 model.add(Convolution2D(64, 9, strides=(1, 1), padding="same", activation='relu'))
 model.add(Convolution2D(64, 9, strides=(1, 1), padding="valid", activation='relu'))
@@ -225,7 +225,7 @@ train_loss = mymodel.history['loss']
 val_loss = mymodel.history['val_loss']
 train_acc = mymodel.history['accuracy']
 val_acc = mymodel.history['val_accuracy']
-xc = range(100)
+xc = range(epochs)
 
 plt.figure(1, figsize=(7, 5))
 plt.plot(xc, train_loss)
